@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CloudFormation Tools</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>CloudFormation Tools</h1>
+      <p class="subtitle">Powered by <a href="https://github.com/aws-cloudformation/rain" target="_blank" rel="noopener">rain</a> &mdash; runs entirely in your browser</p>
+    </div>
+    <div id="wasm-status" class="status-loading">Loading&hellip;</div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav id="tool-list"></nav>
+    </aside>
+
+    <main class="content">
+      <div class="tool-header">
+        <h2 id="tool-title"></h2>
+        <p id="tool-description"></p>
+      </div>
+
+      <div id="inputs">
+        <div class="input-group" id="input-template">
+          <div class="input-label-row">
+            <label for="textarea-template"><span>CloudFormation Template</span></label>
+            <button class="btn-sm" id="template-upload-btn">Upload file</button>
+            <input type="file" id="template-file" accept=".yaml,.yml,.json,.template" hidden>
+          </div>
+          <textarea id="textarea-template" spellcheck="false"
+            placeholder="Paste your CloudFormation template (YAML or JSON)&hellip;"></textarea>
+        </div>
+
+        <div class="input-group hidden" id="input-templateB">
+          <div class="input-label-row">
+            <label for="textarea-templateB"><span>Template B</span></label>
+            <button class="btn-sm" id="templateB-upload-btn">Upload file</button>
+            <input type="file" id="templateB-file" accept=".yaml,.yml,.json,.template" hidden>
+          </div>
+          <textarea id="textarea-templateB" spellcheck="false"
+            placeholder="Paste second CloudFormation template&hellip;"></textarea>
+        </div>
+      </div>
+
+      <div id="tool-options"></div>
+
+      <button id="run-btn" disabled>Run</button>
+
+      <div id="output-section" class="hidden">
+        <div class="output-header">
+          <span>Output</span>
+          <button id="copy-btn">Copy</button>
+        </div>
+        <div id="error-banner" class="hidden"></div>
+        <pre id="output-pre"><code id="output-code"></code></pre>
+      </div>
+    </main>
+  </div>
+
+  <script src="assets/wasm_exec.js"></script>
+  <script src="assets/wasm_loader.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
