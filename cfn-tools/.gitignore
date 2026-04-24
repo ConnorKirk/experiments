@@ -1,2 +1,2 @@
-static/assets/main.wasm
-static/assets/wasm_exec.js
+# wasm artifacts are committed so the site works without a build step
+# Rebuild with: make build
