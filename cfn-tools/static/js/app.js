@@ -88,8 +88,6 @@ function selectTool(tool) {
   // Show/hide second input
   const needsTwo = tool.inputs.includes('templateB');
   $('input-templateB').classList.toggle('hidden', !needsTwo);
-  $('input-template').querySelector('label span').textContent =
-    needsTwo ? 'Template A' : 'CloudFormation Template';
 
   // Render options
   const optsContainer = $('tool-options');
@@ -106,8 +104,7 @@ function selectTool(tool) {
   });
 
   // Clear output
-  $('output-section').classList.add('hidden');
-  $('error-banner').classList.add('hidden');
+  clearOutput();
 }
 
 function getOptions() {
@@ -150,17 +147,23 @@ function runTool() {
   }
 }
 
+function clearOutput() {
+  $('error-banner').classList.add('hidden');
+  $('output-code').textContent = '';
+  $('output-placeholder').classList.remove('hidden');
+}
+
 function showOutput(text) {
   $('error-banner').classList.add('hidden');
+  $('output-placeholder').classList.add('hidden');
   $('output-code').textContent = text;
-  $('output-section').classList.remove('hidden');
 }
 
 function showError(msg) {
+  $('output-placeholder').classList.add('hidden');
   $('error-banner').textContent = msg;
   $('error-banner').classList.remove('hidden');
   $('output-code').textContent = '';
-  $('output-section').classList.remove('hidden');
 }
 
 function setupFileUpload(inputId, textareaId) {

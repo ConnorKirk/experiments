@@ -21,44 +21,52 @@
     </aside>
 
     <main class="content">
-      <div class="tool-header">
-        <h2 id="tool-title"></h2>
-        <p id="tool-description"></p>
-      </div>
-
-      <div id="inputs">
-        <div class="input-group" id="input-template">
-          <div class="input-label-row">
-            <label for="textarea-template"><span>CloudFormation Template</span></label>
-            <button class="btn-sm" id="template-upload-btn">Upload file</button>
-            <input type="file" id="template-file" accept=".yaml,.yml,.json,.template" hidden>
-          </div>
-          <textarea id="textarea-template" spellcheck="false"
-            placeholder="Paste your CloudFormation template (YAML or JSON)&hellip;"></textarea>
+      <div class="tool-bar">
+        <div class="tool-bar-left">
+          <span id="tool-title"></span>
+          <span id="tool-description"></span>
         </div>
-
-        <div class="input-group hidden" id="input-templateB">
-          <div class="input-label-row">
-            <label for="textarea-templateB"><span>Template B</span></label>
-            <button class="btn-sm" id="templateB-upload-btn">Upload file</button>
-            <input type="file" id="templateB-file" accept=".yaml,.yml,.json,.template" hidden>
-          </div>
-          <textarea id="textarea-templateB" spellcheck="false"
-            placeholder="Paste second CloudFormation template&hellip;"></textarea>
+        <div class="tool-bar-right">
+          <div id="tool-options"></div>
+          <button id="run-btn" disabled>Run</button>
         </div>
       </div>
 
-      <div id="tool-options"></div>
-
-      <button id="run-btn" disabled>Run</button>
-
-      <div id="output-section" class="hidden">
-        <div class="output-header">
-          <span>Output</span>
-          <button id="copy-btn">Copy</button>
+      <div class="panes">
+        <div class="pane pane-input">
+          <div class="pane-header">
+            <div class="input-label-row" id="input-template-row">
+              <span>Input</span>
+              <button class="btn-sm" id="template-upload-btn">Upload</button>
+              <input type="file" id="template-file" accept=".yaml,.yml,.json,.template" hidden>
+            </div>
+          </div>
+          <div id="inputs">
+            <div class="input-group" id="input-template">
+              <textarea id="textarea-template" spellcheck="false"
+                placeholder="Paste your CloudFormation template (YAML or JSON)&hellip;"></textarea>
+            </div>
+            <div class="input-group hidden" id="input-templateB">
+              <div class="input-label-row">
+                <span>Template B</span>
+                <button class="btn-sm" id="templateB-upload-btn">Upload</button>
+                <input type="file" id="templateB-file" accept=".yaml,.yml,.json,.template" hidden>
+              </div>
+              <textarea id="textarea-templateB" spellcheck="false"
+                placeholder="Paste second CloudFormation template&hellip;"></textarea>
+            </div>
+          </div>
         </div>
-        <div id="error-banner" class="hidden"></div>
-        <pre id="output-pre"><code id="output-code"></code></pre>
+
+        <div class="pane pane-output">
+          <div class="pane-header">
+            <span>Output</span>
+            <button id="copy-btn" class="btn-sm">Copy</button>
+          </div>
+          <div id="error-banner" class="hidden"></div>
+          <pre id="output-pre"><code id="output-code"></code></pre>
+          <div id="output-placeholder">Run a tool to see output here</div>
+        </div>
       </div>
     </main>
   </div>
