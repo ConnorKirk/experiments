@@ -58,6 +58,12 @@ const TOOLS = [
 ];
 
 let activeTool = TOOLS[0];
+let wasmReady = false;
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
 
 function $(id) { return document.getElementById(id); }
 
@@ -88,8 +94,6 @@ function selectTool(tool) {
   // Show/hide second input
   const needsTwo = tool.inputs.includes('templateB');
   $('input-templateB').classList.toggle('hidden', !needsTwo);
-  $('input-template').querySelector('label span').textContent =
-    needsTwo ? 'Template A' : 'CloudFormation Template';
 
   // Render options
   const optsContainer = $('tool-options');
@@ -100,14 +104,14 @@ function selectTool(tool) {
     const cb = document.createElement('input');
     cb.type = opt.type;
     cb.id = 'opt-' + opt.id;
+    cb.addEventListener('change', () => { if (wasmReady) runTool(); });
     label.appendChild(cb);
     label.appendChild(document.createTextNode(' ' + opt.label));
     optsContainer.appendChild(label);
   });
 
   // Clear output
-  $('output-section').classList.add('hidden');
-  $('error-banner').classList.add('hidden');
+  clearOutput();
 }
 
 function getOptions() {
@@ -131,7 +135,7 @@ function runTool() {
     : [inputs.template];
 
   if (required.some(v => !v)) {
-    showError('Please provide all required template inputs.');
+    clearOutput();
     return;
   }
 
@@ -150,17 +154,23 @@ function runTool() {
   }
 }
 
+function clearOutput() {
+  $('error-banner').classList.add('hidden');
+  $('output-code').textContent = '';
+  $('output-placeholder').classList.remove('hidden');
+}
+
 function showOutput(text) {
   $('error-banner').classList.add('hidden');
+  $('output-placeholder').classList.add('hidden');
   $('output-code').textContent = text;
-  $('output-section').classList.remove('hidden');
 }
 
 function showError(msg) {
+  $('output-placeholder').classList.add('hidden');
   $('error-banner').textContent = msg;
   $('error-banner').classList.remove('hidden');
   $('output-code').textContent = '';
-  $('output-section').classList.remove('hidden');
 }
 
 function setupFileUpload(inputId, textareaId) {
@@ -173,7 +183,10 @@ function setupFileUpload(inputId, textareaId) {
     const file = fileInput.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = e => { textarea.value = e.target.result; };
+    reader.onload = e => {
+      textarea.value = e.target.result;
+      if (wasmReady) runTool();
+    };
     reader.readAsText(file);
     fileInput.value = '';
   });
@@ -194,15 +207,18 @@ document.addEventListener('DOMContentLoaded', () => {
   buildToolNav();
   selectTool(activeTool);
 
-  $('run-btn').addEventListener('click', runTool);
+  const debouncedRun = debounce(() => { if (wasmReady) runTool(); }, 400);
+  $('textarea-template').addEventListener('input', debouncedRun);
+  $('textarea-templateB').addEventListener('input', debouncedRun);
+
   setupFileUpload('template', 'textarea-template');
   setupFileUpload('templateB', 'textarea-templateB');
   setupCopyButton();
 
   RainWasm.onReady(() => {
+    wasmReady = true;
     $('wasm-status').textContent = 'Ready';
     $('wasm-status').className = 'status-ready';
-    $('run-btn').disabled = false;
   });
 
   RainWasm.init('assets/main.wasm').catch(err => {
