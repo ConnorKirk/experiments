@@ -276,21 +276,6 @@ textarea:focus { background: #fffdf8; }
 /* ── Buttons ── */
 button { cursor: pointer; }
 
-#run-btn {
-  background: var(--orange);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius);
-  padding: 6px 18px;
-  font-size: 0.84rem;
-  font-weight: 600;
-  transition: background 0.15s, opacity 0.15s;
-  white-space: nowrap;
-}
-
-#run-btn:hover:not(:disabled) { background: var(--orange-hover); }
-#run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
 .btn-sm {
   background: none;
   border: 1px solid var(--border);

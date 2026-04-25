@@ -58,6 +58,12 @@ const TOOLS = [
 ];
 
 let activeTool = TOOLS[0];
+let wasmReady = false;
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
 
 function $(id) { return document.getElementById(id); }
 
@@ -98,6 +104,7 @@ function selectTool(tool) {
     const cb = document.createElement('input');
     cb.type = opt.type;
     cb.id = 'opt-' + opt.id;
+    cb.addEventListener('change', () => { if (wasmReady) runTool(); });
     label.appendChild(cb);
     label.appendChild(document.createTextNode(' ' + opt.label));
     optsContainer.appendChild(label);
@@ -128,7 +135,7 @@ function runTool() {
     : [inputs.template];
 
   if (required.some(v => !v)) {
-    showError('Please provide all required template inputs.');
+    clearOutput();
     return;
   }
 
@@ -176,7 +183,10 @@ function setupFileUpload(inputId, textareaId) {
     const file = fileInput.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = e => { textarea.value = e.target.result; };
+    reader.onload = e => {
+      textarea.value = e.target.result;
+      if (wasmReady) runTool();
+    };
     reader.readAsText(file);
     fileInput.value = '';
   });
@@ -197,15 +207,18 @@ document.addEventListener('DOMContentLoaded', () => {
   buildToolNav();
   selectTool(activeTool);
 
-  $('run-btn').addEventListener('click', runTool);
+  const debouncedRun = debounce(() => { if (wasmReady) runTool(); }, 400);
+  $('textarea-template').addEventListener('input', debouncedRun);
+  $('textarea-templateB').addEventListener('input', debouncedRun);
+
   setupFileUpload('template', 'textarea-template');
   setupFileUpload('templateB', 'textarea-templateB');
   setupCopyButton();
 
   RainWasm.onReady(() => {
+    wasmReady = true;
     $('wasm-status').textContent = 'Ready';
     $('wasm-status').className = 'status-ready';
-    $('run-btn').disabled = false;
   });
 
   RainWasm.init('assets/main.wasm').catch(err => {
