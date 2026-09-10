@@ -28,6 +28,8 @@ jobs:
           mkdir -p _site/cfn-tools
           cp -r site/. _site/
           cp -r cfn-tools/static/. _site/cfn-tools/
+          mkdir -p _site/system-simulator
+          cp -r system-simulator/static/. _site/system-simulator/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

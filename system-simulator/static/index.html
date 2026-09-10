@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Architecture Simulator</title>
+<style>
+:root {
+  --navy: #1a2332;
+  --orange: #ff9900;
+  --orange-hover: #e68a00;
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --border: #dde1e8;
+  --text: #1a1f2e;
+  --text-muted: #6b7280;
+  --error: #dc2626;
+  --ok: #16a34a;
+  --warn: #f59e0b;
+  --radius: 6px;
+  --mono: 'SFMono-Regular', 'Consolas', 'Liberation Mono', 'Menlo', monospace;
+  --header-h: 52px;
+  --controls-h: 56px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+header {
+  height: var(--header-h);
+  flex-shrink: 0;
+  background: var(--navy);
+  color: #fff;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.header-inner { display: flex; align-items: baseline; gap: 16px; min-width: 0; }
+.header-inner h1 {
+  font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.header-inner .subtitle {
+  font-size: 0.78rem; color: rgba(255,255,255,0.5);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.header-right a { color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.78rem; }
+.header-right a:hover { color: var(--orange); }
+
+/* ── Layout ── */
+.layout { flex: 1; display: flex; min-height: 0; }
+
+/* ── Palette ── */
+.palette {
+  width: 168px; flex-shrink: 0; background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto; padding: 12px 10px;
+}
+.palette h3 {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted); font-weight: 600; margin-bottom: 8px; padding-left: 2px;
+}
+.palette-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px; margin-bottom: 5px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); cursor: grab; user-select: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  touch-action: none;
+}
+.palette-item:hover { border-color: var(--orange); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.palette-item:active { cursor: grabbing; }
+.palette-swatch {
+  width: 22px; height: 22px; border-radius: 5px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 0.8rem;
+}
+.palette-label { font-size: 0.78rem; font-weight: 500; line-height: 1.2; }
+.palette-hint {
+  font-size: 0.7rem; color: var(--text-muted); line-height: 1.5;
+  margin-top: 10px; padding: 8px; background: var(--bg);
+  border-radius: var(--radius); border: 1px solid var(--border);
+}
+
+/* ── Canvas ── */
+.canvas-wrap { flex: 1; position: relative; min-width: 0; background: var(--bg); overflow: hidden; }
+#canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+.node-group { cursor: grab; }
+.node-group.dragging { cursor: grabbing; }
+.port { cursor: crosshair; }
+.edge-hit { cursor: pointer; }
+
+.canvas-empty {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; text-align: center; padding: 20px;
+}
+.canvas-empty div { color: var(--text-muted); font-size: 0.85rem; line-height: 1.7; max-width: 340px; }
+.canvas-empty strong { color: var(--text); font-weight: 600; }
+
+.toast {
+  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+  background: var(--navy); color: #fff; font-size: 0.78rem;
+  padding: 7px 14px; border-radius: 99px; pointer-events: none;
+  opacity: 0; transition: opacity 0.2s; white-space: nowrap; max-width: 90%;
+}
+.toast.show { opacity: 1; }
+
+.ghost {
+  position: fixed; pointer-events: none; z-index: 100;
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--orange);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.16); font-size: 0.78rem; font-weight: 500;
+  transform: translate(-50%, -50%);
+}
+
+/* ── Panel ── */
+.panel {
+  width: 288px; flex-shrink: 0; background: var(--surface);
+  border-left: 1px solid var(--border); overflow-y: auto;
+}
+.panel-section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.panel-section h3 {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted); font-weight: 600; margin-bottom: 10px;
+}
+
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stat {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 7px 9px;
+}
+.stat-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.stat-value { font-size: 1rem; font-weight: 600; font-family: var(--mono); margin-top: 2px; line-height: 1.2; }
+.stat-value small { font-size: 0.68rem; font-weight: 400; color: var(--text-muted); font-family: inherit; }
+.stat-value.good { color: var(--ok); }
+.stat-value.warn { color: var(--warn); }
+.stat-value.bad { color: var(--error); }
+
+.spark-row { margin-top: 10px; }
+.spark-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 0.68rem; color: var(--text-muted); margin-bottom: 3px;
+}
+.spark-head b { font-family: var(--mono); font-size: 0.72rem; color: var(--text); font-weight: 600; }
+.spark {
+  width: 100%; height: 34px; display: block;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+}
+
+.field { margin-bottom: 11px; }
+.field:last-child { margin-bottom: 0; }
+.field-label {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 0.73rem; margin-bottom: 5px;
+}
+.field-label b { font-family: var(--mono); font-weight: 600; font-size: 0.75rem; }
+input[type=range] { width: 100%; accent-color: var(--orange); cursor: pointer; }
+
+.inspector-head { display: flex; align-items: center; gap: 8px; margin-bottom: 11px; }
+.inspector-swatch {
+  width: 26px; height: 26px; border-radius: 5px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
+}
+.inspector-title { font-size: 0.85rem; font-weight: 600; line-height: 1.2; }
+.inspector-sub { font-size: 0.68rem; color: var(--text-muted); margin-top: 1px; }
+
+.kv { display: flex; justify-content: space-between; font-size: 0.73rem; padding: 3px 0; }
+.kv span { color: var(--text-muted); }
+.kv b { font-family: var(--mono); font-weight: 600; }
+
+.util-bar { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; margin: 7px 0 9px; }
+.util-fill { height: 100%; width: 0%; transition: width 0.12s linear; }
+
+.note {
+  font-size: 0.72rem; color: var(--text-muted); line-height: 1.55;
+  background: var(--bg); border: 1px solid var(--border);
+  border-left: 2px solid var(--orange);
+  border-radius: 4px; padding: 8px 9px;
+}
+.note b { color: var(--text); font-weight: 600; }
+
+button {
+  font-family: inherit; font-size: 0.76rem; padding: 6px 11px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  border-radius: var(--radius); cursor: pointer; transition: border-color 0.12s, background 0.12s;
+  white-space: nowrap;
+}
+button:hover { border-color: var(--orange); }
+button.primary { background: var(--orange); border-color: var(--orange); color: #fff; font-weight: 600; }
+button.primary:hover { background: var(--orange-hover); }
+button.danger:hover { border-color: var(--error); color: var(--error); }
+button:disabled { opacity: 0.45; cursor: default; }
+button:disabled:hover { border-color: var(--border); }
+
+.preset-list { display: flex; flex-direction: column; gap: 5px; }
+.preset {
+  text-align: left; padding: 7px 9px; line-height: 1.35;
+  display: flex; flex-direction: column; gap: 2px;
+  white-space: normal;   /* the shared button rule sets nowrap */
+}
+.preset b { font-size: 0.76rem; font-weight: 600; }
+.preset span { font-size: 0.68rem; color: var(--text-muted); }
+
+.btn-row { display: flex; gap: 6px; }
+.btn-row button { flex: 1; }
+
+/* ── Controls ── */
+.controls {
+  height: var(--controls-h); flex-shrink: 0;
+  background: var(--surface); border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 16px; padding: 0 16px;
+  overflow-x: auto;
+}
+.control-group { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.control-group label { font-size: 0.73rem; color: var(--text-muted); white-space: nowrap; }
+.control-group .val { font-family: var(--mono); font-size: 0.78rem; font-weight: 600; min-width: 62px; }
+#traffic { width: 190px; }
+select {
+  font-family: inherit; font-size: 0.76rem; padding: 5px 7px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); color: var(--text); cursor: pointer;
+}
+.divider { width: 1px; height: 26px; background: var(--border); flex-shrink: 0; }
+.spacer { flex: 1; min-width: 8px; }
+
+@media (max-width: 760px) {
+  .header-inner .subtitle { display: none; }
+}
+
+@media (max-width: 900px) {
+  body { overflow: auto; }
+  .layout { flex-direction: column; }
+  .palette { width: 100%; border-right: none; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 5px; }
+  .palette h3, .palette-hint { width: 100%; }
+  .palette-item { margin-bottom: 0; flex: 1 1 130px; }
+  .canvas-wrap { height: 60vh; flex: none; }
+  .panel { width: 100%; border-left: none; border-top: 1px solid var(--border); }
+  .controls { height: auto; flex-wrap: wrap; padding: 10px 12px; gap: 12px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <h1>System Architecture Simulator</h1>
+    <p class="subtitle">Drag components onto the canvas, wire them up, and watch traffic flow</p>
+  </div>
+  <div class="header-right">
+    <a href="../">&larr; Experiments</a>
+  </div>
+</header>
+
+<div class="layout">
+
+  <aside class="palette">
+    <h3>Components</h3>
+    <div id="palette-items"></div>
+    <div class="palette-hint">
+      Drag onto the canvas. Drag from a node's <strong>right edge</strong> to another node to connect them.
+      Traffic splits evenly across every outgoing connection.
+    </div>
+  </aside>
+
+  <div class="canvas-wrap" id="canvas-wrap">
+    <svg id="canvas" viewBox="0 0 1120 680" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#b6bdc9"/>
+        </marker>
+        <marker id="arrow-sel" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff9900"/>
+        </marker>
+      </defs>
+      <g id="layer-edges"></g>
+      <g id="layer-dots"></g>
+      <g id="layer-nodes"></g>
+      <g id="layer-tmp"></g>
+    </svg>
+    <div class="canvas-empty" id="canvas-empty">
+      <div>
+        <strong>Start with a preset</strong> from the panel on the right,<br>
+        or drag a <strong>Client</strong> from the left and build outwards.
+      </div>
+    </div>
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <aside class="panel">
+    <div class="panel-section">
+      <h3>Results</h3>
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat-label">Served</div>
+          <div class="stat-value" id="m-served">0<small> rps</small></div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Success</div>
+          <div class="stat-value" id="m-success">&mdash;</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">p50 latency</div>
+          <div class="stat-value" id="m-p50">&mdash;</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">p95 latency</div>
+          <div class="stat-value" id="m-p95">&mdash;</div>
+        </div>
+      </div>
+      <div class="spark-row">
+        <div class="spark-head"><span>Throughput</span><b id="spark-tp-val">&mdash;</b></div>
+        <svg class="spark" id="spark-tp" preserveAspectRatio="none" viewBox="0 0 120 34"></svg>
+      </div>
+      <div class="spark-row">
+        <div class="spark-head"><span>p95 latency</span><b id="spark-lat-val">&mdash;</b></div>
+        <svg class="spark" id="spark-lat" preserveAspectRatio="none" viewBox="0 0 120 34"></svg>
+      </div>
+      <div class="spark-row" id="job-row" style="display:none">
+        <div class="spark-head"><span>Queue backlog</span><b id="m-backlog">0</b></div>
+        <svg class="spark" id="spark-bl" preserveAspectRatio="none" viewBox="0 0 120 34"></svg>
+      </div>
+    </div>
+
+    <div class="panel-section" id="inspector">
+      <h3>Selection</h3>
+      <div class="note">Click a node or connection to inspect it.</div>
+    </div>
+
+    <div class="panel-section">
+      <h3>Presets</h3>
+      <div class="preset-list" id="presets"></div>
+    </div>
+
+    <div class="panel-section">
+      <h3>Canvas</h3>
+      <div class="btn-row">
+        <button id="btn-reset">Reset stats</button>
+        <button id="btn-clear" class="danger">Clear all</button>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<div class="controls">
+  <div class="control-group">
+    <label for="traffic">Traffic</label>
+    <input type="range" id="traffic" min="10" max="2000" step="10" value="60">
+    <span class="val" id="traffic-val">60 rps</span>
+  </div>
+  <div class="divider"></div>
+  <div class="control-group">
+    <button id="btn-play" class="primary">Pause</button>
+  </div>
+  <div class="control-group">
+    <label for="speed">Speed</label>
+    <select id="speed">
+      <option value="0.25">0.25&times;</option>
+      <option value="0.5" selected>0.5&times;</option>
+      <option value="1">1&times;</option>
+      <option value="2">2&times;</option>
+      <option value="5">5&times;</option>
+    </select>
+  </div>
+  <div class="spacer"></div>
+  <div class="control-group">
+    <label>Sim clock</label>
+    <span class="val" id="clock">0.0 s</span>
+  </div>
+</div>
+
+<script>
+(function () {
+'use strict';
+
+/* ══════════════════════════════════════════════════════════════════
+   Component types
+   ══════════════════════════════════════════════════════════════════ */
+
+const TYPES = {
+  client: {
+    label: 'Client', icon: '\u{1F465}', color: '#64748b',
+    source: true, maxOut: 1,
+    blurb: 'Generates traffic. One outgoing connection — like a single DNS name.',
+  },
+  cdn: {
+    label: 'CDN', icon: '\u{1F310}', color: '#06b6d4',
+    concurrency: 512, service: 5, maxQueue: 2000, hitRatio: 0.80,
+    blurb: 'Edge cache. A hit is answered immediately; a miss is forwarded on.',
+  },
+  lb: {
+    label: 'Load Balancer', icon: '⚖️', color: '#8b5cf6',
+    concurrency: 256, service: 1, maxQueue: 2000,
+    blurb: 'Spreads requests evenly across everything it points to.',
+  },
+  server: {
+    label: 'App Server', icon: '\u{1F5A5}️', color: '#ff9900',
+    concurrency: 4, service: 40, maxQueue: 100, countable: true,
+    blurb: 'Handles requests. 4 concurrent slots per instance — about 100 rps each.',
+  },
+  cache: {
+    label: 'Cache', icon: '⚡', color: '#10b981',
+    concurrency: 64, service: 2, maxQueue: 500, hitRatio: 0.70,
+    blurb: 'In-network cache. Absorbs reads before they reach the database.',
+  },
+  db: {
+    label: 'Database', icon: '\u{1F5C4}️', color: '#3b82f6',
+    concurrency: 8, service: 10, maxQueue: 200,
+    blurb: 'Shared and hard to scale. Usually the ceiling you hit second.',
+  },
+  queue: {
+    label: 'Queue', icon: '\u{1F4E5}', color: '#f59e0b',
+    async: true, maxBacklog: 20000,
+    blurb: 'Acknowledges instantly and holds the job for a worker to pick up later.',
+  },
+  worker: {
+    label: 'Worker', icon: '⚙️', color: '#ec4899',
+    concurrency: 4, service: 200, maxQueue: 50, countable: true, consumer: true,
+    blurb: 'Drains jobs from an upstream queue. Slow work, off the request path.',
+  },
+};
+
+const ORDER = ['client', 'cdn', 'lb', 'server', 'cache', 'db', 'queue', 'worker'];
+
+// The canvas uses a fixed logical coordinate space scaled to fit the viewport,
+// so a layout built on a laptop stays entirely visible on a phone.
+const VW = 1120, VH = 680;
+const NODE_W = 140, NODE_H = 64;
+const CLIENT_LINK_MS = 30;   // internet hop
+const LINK_MS = 12;          // internal hop
+const TIMEOUT_MS = 3000;     // client gives up
+const TICK_MS = 5;           // simulation resolution
+const WINDOW_MS = 5000;      // rolling metrics window
+const SAMPLE_MS = 200;       // sparkline sample interval
+const MAX_DOTS = 400;
+
+/* ══════════════════════════════════════════════════════════════════
+   State
+   ══════════════════════════════════════════════════════════════════ */
+
+let nodes = [];
+let edges = [];
+let seq = 1;
+let selection = null;        // {kind:'node'|'edge', id}
+
+let simTime = 0;
+let running = true;
+let speed = 0.5;
+let rps = 60;
+
+// Metrics are kept as time-bucketed counters plus a capped latency window, so
+// the per-frame cost stays flat no matter how much traffic is flowing.
+const BUCKET_MS = 250;
+const LAT_CAP = 1500;
+let buckets = [];            // {t, ok, total}
+let latWin = [];             // {t, latency} for successful requests
+let samples = { tp: [], lat: [], bl: [] };
+let lastSample = 0;
+
+const svg = document.getElementById('canvas');
+const layerEdges = document.getElementById('layer-edges');
+const layerDots = document.getElementById('layer-dots');
+const layerNodes = document.getElementById('layer-nodes');
+const layerTmp = document.getElementById('layer-tmp');
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+/* ══════════════════════════════════════════════════════════════════
+   Graph helpers
+   ══════════════════════════════════════════════════════════════════ */
+
+function makeNode(type, x, y) {
+  const t = TYPES[type];
+  return {
+    id: 'n' + (seq++),
+    type: type,
+    x: Math.round(x),
+    y: Math.round(y),
+    count: 1,
+    hitRatio: t.hitRatio !== undefined ? t.hitRatio : null,
+    rr: 0,
+    serving: [],
+    queue: [],
+    backlog: [],
+    stats: { done: 0, dropped: 0 },
+    util: 0,
+  };
+}
+
+function nodeById(id) { return nodes.find(n => n.id === id); }
+function edgeById(id) { return edges.find(e => e.id === id); }
+function outEdges(n) { return edges.filter(e => e.from === n.id); }
+function inEdges(n) { return edges.filter(e => e.to === n.id); }
+function slotsOf(n) {
+  const t = TYPES[n.type];
+  if (t.concurrency === undefined) return 0;
+  return t.concurrency * (t.countable ? n.count : 1);
+}
+
+function addNode(type, x, y) {
+  const n = makeNode(type, x - NODE_W / 2, y - NODE_H / 2);
+  clampNode(n);
+  nodes.push(n);
+  select('node', n.id);
+  renderGraph();
+  return n;
+}
+
+function clampNode(n) {
+  n.x = Math.max(8, Math.min(n.x, VW - NODE_W - 8));
+  n.y = Math.max(8, Math.min(n.y, VH - NODE_H - 8));
+}
+
+function removeNode(id) {
+  nodes = nodes.filter(n => n.id !== id);
+  edges = edges.filter(e => e.from !== id && e.to !== id);
+  if (selection && selection.id === id) selection = null;
+  renderGraph();
+}
+
+function removeEdge(id) {
+  edges = edges.filter(e => e.id !== id);
+  if (selection && selection.id === id) selection = null;
+  renderGraph();
+}
+
+function tryConnect(fromId, toId) {
+  if (fromId === toId) return toast('A node cannot connect to itself.');
+  const from = nodeById(fromId), to = nodeById(toId);
+  if (!from || !to) return;
+  if (TYPES[to.type].source) return toast('Nothing can connect into a Client.');
+  if (edges.some(e => e.from === fromId && e.to === toId)) return toast('Those are already connected.');
+  const max = TYPES[from.type].maxOut;
+  if (max && outEdges(from).length >= max) {
+    return toast('A Client has a single endpoint — put a load balancer in front to fan out.');
+  }
+  edges.push({ id: 'e' + (seq++), from: fromId, to: toId });
+  select('edge', edges[edges.length - 1].id);
+  renderGraph();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Simulation
+   ══════════════════════════════════════════════════════════════════ */
+
+function expRand(mean) {
+  return Math.max(0.5, -mean * Math.log(1 - Math.random()));
+}
+
+function poisson(lambda) {
+  if (lambda <= 0) return 0;
+  if (lambda > 20) { // normal approximation, adequate at this scale
+    const u = Math.random(), v = Math.random();
+    const z = Math.sqrt(-2 * Math.log(u || 1e-9)) * Math.cos(2 * Math.PI * v);
+    return Math.max(0, Math.round(lambda + z * Math.sqrt(lambda)));
+  }
+  const L = Math.exp(-lambda);
+  let k = 0, p = 1;
+  do { k++; p *= Math.random(); } while (p > L);
+  return k - 1;
+}
+
+function resetRuntime() {
+  nodes.forEach(n => {
+    n.serving = []; n.queue = []; n.backlog = [];
+    n.stats = { done: 0, dropped: 0 }; n.util = 0; n.rr = 0;
+  });
+  edges.forEach(e => { e.transit = []; e._len = undefined; });
+  buckets = []; latWin = [];
+  samples = { tp: [], lat: [], bl: [] };
+  simTime = 0; lastSample = 0;
+}
+
+function ensureRuntime() {
+  // Path elements are rebuilt by renderGraph, so cached lengths must go too.
+  edges.forEach(e => { if (!e.transit) e.transit = []; e._len = undefined; });
+}
+
+function send(edge, req) {
+  const from = nodeById(edge.from);
+  const lat = (from && TYPES[from.type].source) ? CLIENT_LINK_MS : LINK_MS;
+  edge.transit.push({ req: req, t0: simTime, t1: simTime + lat });
+}
+
+function respond(req, outcome) {
+  const latency = simTime - req.t0;
+  // Async jobs are allowed to take as long as they take — only a caller
+  // waiting on a response can time out.
+  if (!req.isJob && outcome === 'ok' && latency > TIMEOUT_MS) outcome = 'timeout';
+  if (req.isJob) return;
+
+  const slot = Math.floor(simTime / BUCKET_MS);
+  let b = buckets.length ? buckets[buckets.length - 1] : null;
+  if (!b || b.t !== slot) { b = { t: slot, ok: 0, total: 0 }; buckets.push(b); }
+  b.total++;
+  if (outcome === 'ok') {
+    b.ok++;
+    latWin.push({ t: simTime, latency: latency });
+  }
+}
+
+function arrive(node, req) {
+  const t = TYPES[node.type];
+
+  // A queue acknowledges the caller immediately and parks the work.
+  if (t.async) {
+    if (node.backlog.length < t.maxBacklog) {
+      node.backlog.push({ id: req.id, t0: simTime, isJob: true });
+      respond(req, 'ok');
+    } else {
+      node.stats.dropped++;
+      respond(req, 'rejected');
+    }
+    return;
+  }
+
+  // Cache tiers decide hit/miss on arrival; the flag is read at completion.
+  if (node.hitRatio !== null && node.hitRatio !== undefined) {
+    req.hit = Math.random() < node.hitRatio;
+  }
+
+  if (node.serving.length < slotsOf(node)) {
+    startService(node, req);
+  } else if (node.queue.length < t.maxQueue) {
+    req.qAt = simTime;
+    node.queue.push(req);
+  } else {
+    node.stats.dropped++;
+    respond(req, 'rejected');
+  }
+}
+
+function startService(node, req) {
+  const t = TYPES[node.type];
+  node.serving.push({ req: req, t1: simTime + expRand(t.service) });
+}
+
+function complete(node, req) {
+  node.stats.done++;
+
+  if (req.hit) {                 // cache/CDN hit: answered here
+    req.hit = false;
+    respond(req, 'ok');
+    return;
+  }
+
+  const outs = outEdges(node);
+  if (!outs.length) { respond(req, 'ok'); return; }
+
+  const e = outs[node.rr % outs.length];
+  node.rr = (node.rr + 1) % outs.length;
+  send(e, req);
+}
+
+function step(dt) {
+  simTime += dt;
+
+  // 1. Arrivals at every client
+  const sources = nodes.filter(n => TYPES[n.type].source);
+  if (sources.length) {
+    const perSource = rps / sources.length;
+    sources.forEach(src => {
+      const outs = outEdges(src);
+      if (!outs.length) return;
+      const n = poisson(perSource * dt / 1000);
+      for (let i = 0; i < n; i++) {
+        const req = { id: seq++, t0: simTime, hit: false };
+        const e = outs[src.rr % outs.length];
+        src.rr = (src.rr + 1) % outs.length;
+        send(e, req);
+      }
+    });
+  }
+
+  // 2. Deliver anything that finished crossing a link
+  edges.forEach(e => {
+    if (!e.transit.length) return;
+    const target = nodeById(e.to);
+    const keep = [];
+    for (const p of e.transit) {
+      if (p.t1 <= simTime && target) arrive(target, p.req);
+      else keep.push(p);
+    }
+    e.transit = keep;
+  });
+
+  // 3. Finish in-flight service
+  nodes.forEach(n => {
+    if (!n.serving.length) return;
+    const keep = [];
+    for (const s of n.serving) {
+      if (s.t1 <= simTime) complete(n, s.req);
+      else keep.push(s);
+    }
+    n.serving = keep;
+  });
+
+  // 4. Workers pull jobs from upstream queues
+  nodes.forEach(n => {
+    if (!TYPES[n.type].consumer) return;
+    const queues = inEdges(n).map(e => nodeById(e.from)).filter(q => q && TYPES[q.type].async);
+    let guard = 0;
+    while (n.serving.length < slotsOf(n) && guard++ < 200) {
+      const q = queues.find(q => q.backlog.length);
+      if (!q) break;
+      startService(n, q.backlog.shift());
+    }
+  });
+
+  // 5. Pull waiting requests into freed slots, and expire the hopeless
+  nodes.forEach(n => {
+    if (n.queue.length) {
+      const alive = [];
+      for (const req of n.queue) {
+        if (!req.isJob && simTime - req.t0 > TIMEOUT_MS) { respond(req, 'timeout'); }
+        else alive.push(req);
+      }
+      n.queue = alive;
+    }
+    let guard = 0;
+    while (n.queue.length && n.serving.length < slotsOf(n) && guard++ < 500) {
+      startService(n, n.queue.shift());
+    }
+    // Instantaneous occupancy swings hard with few slots (real M/M/c behaviour),
+    // so the displayed utilisation is smoothed over roughly half a second.
+    // The exact in-flight and waiting counts stay visible in the inspector.
+    const slots = slotsOf(n);
+    const inst = slots ? n.serving.length / slots : 0;
+    n.util += (inst - n.util) * 0.012;
+  });
+
+  // 6. Trim rolling windows
+  const cutoff = simTime - WINDOW_MS;
+  const minSlot = Math.floor(cutoff / BUCKET_MS);
+  while (buckets.length && buckets[0].t < minSlot) buckets.shift();
+  let drop = 0;
+  while (drop < latWin.length && latWin[drop].t < cutoff) drop++;
+  if (latWin.length - drop > LAT_CAP) drop = latWin.length - LAT_CAP;
+  if (drop) latWin.splice(0, drop);
+
+  // 7. Sample for sparklines
+  if (simTime - lastSample >= SAMPLE_MS) {
+    lastSample = simTime;
+    const m = summarise();
+    push(samples.tp, m.served);
+    push(samples.lat, m.p95 === null ? 0 : m.p95);
+    push(samples.bl, nodes.reduce((s, n) => s + n.backlog.length, 0));
+  }
+}
+
+function push(arr, v) { arr.push(v); if (arr.length > 120) arr.shift(); }
+
+function percentile(sorted, p) {
+  if (!sorted.length) return null;
+  const i = Math.min(sorted.length - 1, Math.floor(p * sorted.length));
+  return sorted[i];
+}
+
+function summarise() {
+  const span = Math.min(simTime, WINDOW_MS) / 1000 || 1;
+  let ok = 0, total = 0;
+  for (const b of buckets) { ok += b.ok; total += b.total; }
+  const lat = latWin.map(r => r.latency).sort((a, b) => a - b);
+  return {
+    served: ok / span,
+    total: total,
+    success: total ? ok / total : null,
+    p50: percentile(lat, 0.50),
+    p95: percentile(lat, 0.95),
+    p99: percentile(lat, 0.99),
+    backlog: nodes.reduce((s, n) => s + n.backlog.length, 0),
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Rendering — static graph
+   ══════════════════════════════════════════════════════════════════ */
+
+function el(tag, attrs) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+function portOut(n) { return { x: n.x + NODE_W, y: n.y + NODE_H / 2 }; }
+function portIn(n) { return { x: n.x, y: n.y + NODE_H / 2 }; }
+
+function edgePath(from, to) {
+  const a = portOut(from), b = portIn(to);
+  const endX = b.x - 10;   // stop short so the arrowhead clears the input port
+  const dx = Math.max(40, Math.abs(endX - a.x) * 0.5);
+  return `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${endX - dx} ${b.y}, ${endX} ${b.y}`;
+}
+
+const pathCache = new Map();
+
+function renderGraph() {
+  layerEdges.textContent = '';
+  layerNodes.textContent = '';
+  pathCache.clear();
+  ensureRuntime();
+
+  edges.forEach(e => {
+    const from = nodeById(e.from), to = nodeById(e.to);
+    if (!from || !to) return;
+    const d = edgePath(from, to);
+    const sel = selection && selection.kind === 'edge' && selection.id === e.id;
+
+    const hit = el('path', { d: d, fill: 'none', stroke: 'transparent', 'stroke-width': 14, class: 'edge-hit' });
+    hit.addEventListener('pointerdown', ev => { ev.stopPropagation(); select('edge', e.id); });
+    layerEdges.appendChild(hit);
+
+    const line = el('path', {
+      d: d, fill: 'none',
+      stroke: sel ? '#ff9900' : '#b6bdc9',
+      'stroke-width': sel ? 2.5 : 1.6,
+      'marker-end': sel ? 'url(#arrow-sel)' : 'url(#arrow)',
+      'pointer-events': 'none',
+    });
+    layerEdges.appendChild(line);
+    pathCache.set(e.id, line);
+  });
+
+  nodes.forEach(n => {
+    const t = TYPES[n.type];
+    const sel = selection && selection.kind === 'node' && selection.id === n.id;
+    const g = el('g', { class: 'node-group', transform: `translate(${n.x},${n.y})` });
+
+    g.appendChild(el('rect', {
+      x: 0, y: 0, width: NODE_W, height: NODE_H, rx: 8,
+      fill: '#fff', stroke: sel ? '#ff9900' : '#dde1e8', 'stroke-width': sel ? 2.5 : 1.5,
+    }));
+    g.appendChild(el('rect', { x: 0, y: 0, width: 4, height: NODE_H, rx: 2, fill: t.color }));
+
+    const icon = el('text', { x: 14, y: 25, 'font-size': 14 });
+    icon.textContent = t.icon;
+    g.appendChild(icon);
+
+    const label = el('text', { x: 36, y: 25, 'font-size': 11.5, 'font-weight': 600, fill: '#1a1f2e' });
+    label.textContent = t.label;
+    g.appendChild(label);
+
+    if (t.countable && n.count > 1) {
+      const badge = el('text', { x: NODE_W - 12, y: 25, 'font-size': 11, 'font-weight': 700, fill: t.color, 'text-anchor': 'end' });
+      badge.textContent = '×' + n.count;
+      g.appendChild(badge);
+    }
+
+    // utilisation / backlog readout
+    const sub = el('text', { x: 36, y: 40, 'font-size': 9.5, fill: '#6b7280' });
+    sub.setAttribute('data-role', 'sub');
+    g.appendChild(sub);
+
+    // utilisation bar
+    g.appendChild(el('rect', { x: 12, y: NODE_H - 15, width: NODE_W - 24, height: 4, rx: 2, fill: '#eef0f4' }));
+    const fill = el('rect', { x: 12, y: NODE_H - 15, width: 0, height: 4, rx: 2, fill: t.color });
+    fill.setAttribute('data-role', 'util');
+    g.appendChild(fill);
+
+    // ports
+    g.appendChild(el('circle', { cx: 0, cy: NODE_H / 2, r: 4, fill: '#fff', stroke: '#b6bdc9', 'stroke-width': 1.5 }));
+    const out = el('circle', { cx: NODE_W, cy: NODE_H / 2, r: 5.5, fill: t.color, stroke: '#fff', 'stroke-width': 2, class: 'port' });
+    g.appendChild(out);
+
+    g.addEventListener('pointerdown', ev => onNodePointerDown(ev, n, ev.target === out));
+    layerNodes.appendChild(g);
+    n._g = g;
+    n._util = fill;
+    n._sub = sub;
+  });
+
+  document.getElementById('canvas-empty').style.display = nodes.length ? 'none' : 'flex';
+  renderInspector();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Rendering — per-frame
+   ══════════════════════════════════════════════════════════════════ */
+
+const dotPool = [];
+
+function renderFrame() {
+  // In-flight dots, drawn from a reusable pool so a busy system does not
+  // churn hundreds of SVG elements every frame.
+  let used = 0;
+  for (const e of edges) {
+    const line = pathCache.get(e.id);
+    if (!line || !e.transit.length) continue;
+    if (e._len === undefined) e._len = line.getTotalLength();
+    for (const p of e.transit) {
+      if (used >= MAX_DOTS) break;
+      const f = Math.max(0, Math.min(1, (simTime - p.t0) / (p.t1 - p.t0)));
+      const pt = line.getPointAtLength(e._len * f);
+      let c = dotPool[used];
+      if (!c) {
+        c = el('circle', { r: 3, opacity: 0.85 });
+        dotPool.push(c);
+        layerDots.appendChild(c);
+      }
+      c.setAttribute('cx', pt.x.toFixed(1));
+      c.setAttribute('cy', pt.y.toFixed(1));
+      c.setAttribute('fill', p.req.isJob ? '#f59e0b' : '#ff9900');
+      c.removeAttribute('display');
+      used++;
+    }
+    if (used >= MAX_DOTS) break;
+  }
+  for (let i = used; i < dotPool.length; i++) dotPool[i].setAttribute('display', 'none');
+
+  // node readouts
+  for (const n of nodes) {
+    if (!n._util) continue;
+    const t = TYPES[n.type];
+    const u = Math.max(0, Math.min(1, n.util));
+    n._util.setAttribute('width', ((NODE_W - 24) * u).toFixed(1));
+    n._util.setAttribute('fill', u > 0.9 ? '#dc2626' : (u > 0.75 ? '#f59e0b' : t.color));
+
+    let txt;
+    if (t.async) txt = n.backlog.length + ' queued';
+    else if (t.source) txt = Math.round(rps / sourceCount()) + ' rps out';
+    else txt = Math.round(u * 100) + '% busy' + (n.queue.length ? '  · ' + n.queue.length + ' waiting' : '');
+    if (n._sub.textContent !== txt) n._sub.textContent = txt;
+  }
+
+  // The metrics panel re-sorts a latency window, so refresh it at a readable
+  // rate rather than on every animation frame.
+  const now = performance.now();
+  if (now - lastMetricsPaint > 120) { lastMetricsPaint = now; renderMetrics(); }
+}
+
+let lastMetricsPaint = 0;
+function sourceCount() {
+  const c = nodes.reduce((s, n) => s + (TYPES[n.type].source ? 1 : 0), 0);
+  return c || 1;
+}
+
+function fmtMs(v) {
+  if (v === null || v === undefined) return '—';
+  if (v >= 1000) return (v / 1000).toFixed(2) + ' s';
+  return Math.round(v) + ' ms';
+}
+
+function renderMetrics() {
+  const m = summarise();
+
+  const served = document.getElementById('m-served');
+  served.innerHTML = Math.round(m.served) + '<small> rps</small>';
+
+  const succ = document.getElementById('m-success');
+  if (m.success === null) { succ.textContent = '—'; succ.className = 'stat-value'; }
+  else {
+    succ.textContent = (m.success * 100).toFixed(1) + '%';
+    succ.className = 'stat-value ' + (m.success > 0.995 ? 'good' : m.success > 0.95 ? 'warn' : 'bad');
+  }
+
+  document.getElementById('m-p50').textContent = fmtMs(m.p50);
+  const p95 = document.getElementById('m-p95');
+  p95.textContent = fmtMs(m.p95);
+  p95.className = 'stat-value ' + (m.p95 === null ? '' : m.p95 > 1000 ? 'bad' : m.p95 > 300 ? 'warn' : 'good');
+
+  document.getElementById('spark-tp-val').textContent = Math.round(m.served) + ' rps';
+  document.getElementById('spark-lat-val').textContent = fmtMs(m.p95);
+  drawSpark('spark-tp', samples.tp, '#ff9900');
+  drawSpark('spark-lat', samples.lat, '#8b5cf6');
+
+  const hasQueue = nodes.some(n => TYPES[n.type].async);
+  document.getElementById('job-row').style.display = hasQueue ? '' : 'none';
+  if (hasQueue) {
+    document.getElementById('m-backlog').textContent = m.backlog + ' jobs';
+    drawSpark('spark-bl', samples.bl, '#f59e0b');
+  }
+
+  document.getElementById('clock').textContent = (simTime / 1000).toFixed(1) + ' s';
+
+  if (selection && selection.kind === 'node') renderNodeStats();
+}
+
+function drawSpark(id, data, color) {
+  const s = document.getElementById(id);
+  s.textContent = '';
+  if (data.length < 2) return;
+  const max = Math.max.apply(null, data) || 1;
+  const step = 120 / (data.length - 1);
+  let d = '';
+  data.forEach((v, i) => {
+    const x = (i * step).toFixed(2);
+    const y = (32 - (v / max) * 30).toFixed(2);
+    d += (i ? ' L ' : 'M ') + x + ' ' + y;
+  });
+  s.appendChild(el('path', { d: d + ` L 120 34 L 0 34 Z`, fill: color, opacity: 0.13 }));
+  s.appendChild(el('path', { d: d, fill: 'none', stroke: color, 'stroke-width': 1.5 }));
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Inspector
+   ══════════════════════════════════════════════════════════════════ */
+
+function select(kind, id) {
+  selection = { kind: kind, id: id };
+  renderGraph();
+}
+
+function renderInspector() {
+  const box = document.getElementById('inspector');
+
+  if (!selection) {
+    box.innerHTML = '<h3>Selection</h3><div class="note">Click a node or connection to inspect it.</div>';
+    return;
+  }
+
+  if (selection.kind === 'edge') {
+    const e = edgeById(selection.id);
+    if (!e) { selection = null; return renderInspector(); }
+    const from = nodeById(e.from), to = nodeById(e.to);
+    const share = outEdges(from).length;
+    box.innerHTML =
+      '<h3>Connection</h3>' +
+      '<div class="inspector-head">' +
+        '<div class="inspector-swatch" style="background:' + TYPES[from.type].color + '22">→</div>' +
+        '<div><div class="inspector-title">' + TYPES[from.type].label + ' → ' + TYPES[to.type].label + '</div>' +
+        '<div class="inspector-sub">' + (TYPES[from.type].source ? CLIENT_LINK_MS : LINK_MS) + ' ms link latency</div></div>' +
+      '</div>' +
+      '<div class="kv"><span>Share of upstream traffic</span><b>' + Math.round(100 / share) + '%</b></div>' +
+      '<div class="kv"><span>In flight</span><b>' + (e.transit ? e.transit.length : 0) + '</b></div>' +
+      '<div style="margin-top:10px"><button class="danger" id="btn-del" style="width:100%">Delete connection</button></div>';
+    document.getElementById('btn-del').onclick = () => removeEdge(e.id);
+    return;
+  }
+
+  const n = nodeById(selection.id);
+  if (!n) { selection = null; return renderInspector(); }
+  const t = TYPES[n.type];
+
+  let html =
+    '<h3>Component</h3>' +
+    '<div class="inspector-head">' +
+      '<div class="inspector-swatch" style="background:' + t.color + '22">' + t.icon + '</div>' +
+      '<div><div class="inspector-title">' + t.label + '</div>' +
+      '<div class="inspector-sub">' + (t.source ? 'traffic source' : t.async ? 'async handoff' :
+        slotsOf(n) + ' concurrent slots · ' + t.service + ' ms') + '</div></div>' +
+    '</div>';
+
+  if (!t.source && !t.async) {
+    html += '<div class="util-bar"><div class="util-fill" id="ins-util"></div></div>';
+  }
+
+  html += '<div id="ins-stats"></div>';
+
+  if (t.countable) {
+    html +=
+      '<div class="field" style="margin-top:12px">' +
+        '<div class="field-label"><span>Instances</span><b id="cnt-val">×' + n.count + '</b></div>' +
+        '<input type="range" id="cnt" min="1" max="16" step="1" value="' + n.count + '">' +
+      '</div>';
+  }
+
+  if (n.hitRatio !== null && n.hitRatio !== undefined) {
+    html +=
+      '<div class="field">' +
+        '<div class="field-label"><span>Hit ratio</span><b id="hit-val">' + Math.round(n.hitRatio * 100) + '%</b></div>' +
+        '<input type="range" id="hit" min="0" max="95" step="5" value="' + Math.round(n.hitRatio * 100) + '">' +
+      '</div>';
+  }
+
+  html += '<div class="note" style="margin-top:10px">' + t.blurb + '</div>';
+  html += '<div style="margin-top:10px"><button class="danger" id="btn-del" style="width:100%">Delete component</button></div>';
+
+  box.innerHTML = html;
+
+  const cnt = document.getElementById('cnt');
+  if (cnt) cnt.oninput = () => {
+    n.count = +cnt.value;
+    document.getElementById('cnt-val').textContent = '×' + n.count;
+    renderGraph();
+  };
+
+  const hit = document.getElementById('hit');
+  if (hit) hit.oninput = () => {
+    n.hitRatio = +hit.value / 100;
+    document.getElementById('hit-val').textContent = hit.value + '%';
+  };
+
+  document.getElementById('btn-del').onclick = () => removeNode(n.id);
+  renderNodeStats();
+}
+
+function renderNodeStats() {
+  const box = document.getElementById('ins-stats');
+  if (!box || !selection || selection.kind !== 'node') return;
+  const n = nodeById(selection.id);
+  if (!n) return;
+  const t = TYPES[n.type];
+
+  const bar = document.getElementById('ins-util');
+  if (bar) {
+    const u = Math.max(0, Math.min(1, n.util));
+    bar.style.width = (u * 100) + '%';
+    bar.style.background = u > 0.9 ? '#dc2626' : u > 0.75 ? '#f59e0b' : t.color;
+  }
+
+  let rows = '';
+  if (t.source) {
+    rows += kv('Offered load', Math.round(rps) + ' rps');
+    rows += kv('Connections', outEdges(n).length + ' / 1');
+  } else if (t.async) {
+    rows += kv('Backlog', n.backlog.length + ' jobs');
+    rows += kv('Dropped', n.stats.dropped.toLocaleString());
+    rows += kv('Consumers', outEdges(n)
+      .filter(e => { const to = nodeById(e.to); return to && TYPES[to.type].consumer; }).length);
+  } else {
+    rows += kv('Utilisation', Math.round(n.util * 100) + '%');
+    rows += kv('In flight', n.serving.length + ' / ' + slotsOf(n));
+    rows += kv('Waiting', n.queue.length);
+    rows += kv('Completed', n.stats.done.toLocaleString());
+    rows += kv('Rejected', n.stats.dropped.toLocaleString());
+    if (!t.async && t.service) {
+      rows += kv('Theoretical max', Math.round(slotsOf(n) / (t.service / 1000)) + ' rps');
+    }
+  }
+  box.innerHTML = rows;
+}
+
+function kv(k, v) { return '<div class="kv"><span>' + k + '</span><b>' + v + '</b></div>'; }
+
+/* ══════════════════════════════════════════════════════════════════
+   Interaction
+   ══════════════════════════════════════════════════════════════════ */
+
+let drag = null;
+let ghost = null;
+
+// Map a pointer position into the canvas's logical coordinate space, undoing
+// the uniform scale and centring that preserveAspectRatio="xMidYMid meet" applies.
+function svgPoint(ev) {
+  const r = svg.getBoundingClientRect();
+  const scale = Math.min(r.width / VW, r.height / VH) || 1;
+  const ox = (r.width - VW * scale) / 2;
+  const oy = (r.height - VH * scale) / 2;
+  return {
+    x: (ev.clientX - r.left - ox) / scale,
+    y: (ev.clientY - r.top - oy) / scale,
+  };
+}
+
+function nodeAt(pt) {
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const n = nodes[i];
+    if (pt.x >= n.x && pt.x <= n.x + NODE_W && pt.y >= n.y && pt.y <= n.y + NODE_H) return n;
+  }
+  return null;
+}
+
+function onNodePointerDown(ev, n, isPort) {
+  ev.stopPropagation();
+  ev.preventDefault();
+  const pt = svgPoint(ev);
+  if (isPort) {
+    drag = { mode: 'link', from: n, x: pt.x, y: pt.y };
+  } else {
+    drag = { mode: 'move', node: n, dx: pt.x - n.x, dy: pt.y - n.y, moved: false };
+    n._g.classList.add('dragging');
+  }
+  select('node', n.id);
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+}
+
+function onPalettePointerDown(ev, type) {
+  ev.preventDefault();
+  drag = { mode: 'new', type: type };
+  ghost = document.createElement('div');
+  ghost.className = 'ghost';
+  ghost.innerHTML = '<span>' + TYPES[type].icon + '</span><span>' + TYPES[type].label + '</span>';
+  ghost.style.left = ev.clientX + 'px';
+  ghost.style.top = ev.clientY + 'px';
+  document.body.appendChild(ghost);
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+}
+
+function onPointerMove(ev) {
+  if (!drag) return;
+  if (drag.mode === 'new') {
+    ghost.style.left = ev.clientX + 'px';
+    ghost.style.top = ev.clientY + 'px';
+    return;
+  }
+  const pt = svgPoint(ev);
+  if (drag.mode === 'move') {
+    drag.moved = true;
+    drag.node.x = Math.round(pt.x - drag.dx);
+    drag.node.y = Math.round(pt.y - drag.dy);
+    clampNode(drag.node);
+    drag.node._g.setAttribute('transform', `translate(${drag.node.x},${drag.node.y})`);
+    updateEdgePaths();
+  } else if (drag.mode === 'link') {
+    drag.x = pt.x; drag.y = pt.y;
+    const a = portOut(drag.from);
+    layerTmp.textContent = '';
+    layerTmp.appendChild(el('path', {
+      d: `M ${a.x} ${a.y} L ${pt.x} ${pt.y}`,
+      stroke: '#ff9900', 'stroke-width': 2, 'stroke-dasharray': '5 4', fill: 'none',
+    }));
+    const target = nodeAt(pt);
+    if (target && target !== drag.from) {
+      layerTmp.appendChild(el('rect', {
+        x: target.x - 3, y: target.y - 3, width: NODE_W + 6, height: NODE_H + 6, rx: 10,
+        fill: 'none', stroke: '#ff9900', 'stroke-width': 2, opacity: 0.6,
+      }));
+    }
+  }
+}
+
+function onPointerUp(ev) {
+  window.removeEventListener('pointermove', onPointerMove);
+  window.removeEventListener('pointerup', onPointerUp);
+  if (!drag) return;
+
+  if (drag.mode === 'new') {
+    if (ghost) { ghost.remove(); ghost = null; }
+    const r = svg.getBoundingClientRect();
+    const inside = ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
+    if (inside) { const p = svgPoint(ev); addNode(drag.type, p.x, p.y); }
+  } else if (drag.mode === 'move') {
+    drag.node._g.classList.remove('dragging');
+    edges.forEach(e => { e._len = undefined; });
+    renderGraph();
+  } else if (drag.mode === 'link') {
+    layerTmp.textContent = '';
+    const target = nodeAt(svgPoint(ev));
+    if (target) tryConnect(drag.from.id, target.id);
+  }
+  drag = null;
+}
+
+function updateEdgePaths() {
+  edges.forEach(e => {
+    const line = pathCache.get(e.id);
+    const from = nodeById(e.from), to = nodeById(e.to);
+    if (!line || !from || !to) return;
+    line.setAttribute('d', edgePath(from, to));
+    e._len = undefined;
+  });
+  // hit paths sit immediately before their line in the same layer
+  const hits = layerEdges.querySelectorAll('.edge-hit');
+  edges.forEach((e, i) => {
+    const from = nodeById(e.from), to = nodeById(e.to);
+    if (hits[i] && from && to) hits[i].setAttribute('d', edgePath(from, to));
+  });
+}
+
+svg.addEventListener('pointerdown', () => { selection = null; renderGraph(); });
+
+window.addEventListener('keydown', ev => {
+  if (ev.key !== 'Delete' && ev.key !== 'Backspace') return;
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+  if (!selection) return;
+  ev.preventDefault();
+  if (selection.kind === 'node') removeNode(selection.id); else removeEdge(selection.id);
+});
+
+let toastTimer = null;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Presets
+   ══════════════════════════════════════════════════════════════════ */
+
+const PRESETS = [
+  {
+    name: 'Single server',
+    hint: 'One box does everything. Find where it breaks.',
+    rps: 60,
+    build: () => {
+      const c = mk('client', 150, 300), s = mk('server', 480, 300), d = mk('db', 810, 300);
+      link(c, s); link(s, d);
+    },
+  },
+  {
+    name: 'Load balanced',
+    hint: 'Scale out horizontally. Watch what becomes the new limit.',
+    rps: 300,
+    build: () => {
+      const c = mk('client', 100, 300), l = mk('lb', 330, 300), s = mk('server', 580, 300), d = mk('db', 830, 300);
+      s.count = 4;
+      link(c, l); link(l, s); link(s, d);
+    },
+  },
+  {
+    name: 'CDN and cache',
+    hint: 'Absorb reads before they reach the origin.',
+    rps: 900,
+    build: () => {
+      const c = mk('client', 60, 300), cdn = mk('cdn', 232, 300), l = mk('lb', 404, 300),
+            s = mk('server', 576, 300), ca = mk('cache', 748, 300), d = mk('db', 920, 300);
+      s.count = 4;
+      link(c, cdn); link(cdn, l); link(l, s); link(s, ca); link(ca, d);
+    },
+  },
+  {
+    name: 'Async queue',
+    hint: 'Half the traffic is slow work. Defer it and watch latency drop.',
+    rps: 300,
+    build: () => {
+      const c = mk('client', 60, 300), l = mk('lb', 260, 300), s = mk('server', 460, 300),
+            d = mk('db', 700, 170), q = mk('queue', 700, 420), w = mk('worker', 900, 420);
+      s.count = 4; w.count = 8;
+      link(c, l); link(l, s); link(s, d); link(s, q); link(q, w);
+    },
+  },
+];
+
+function mk(type, x, y) { const n = makeNode(type, x, y); nodes.push(n); return n; }
+function link(a, b) { edges.push({ id: 'e' + (seq++), from: a.id, to: b.id, transit: [] }); }
+
+function loadPreset(p) {
+  nodes = []; edges = []; selection = null;
+  p.build();
+  nodes.forEach(clampNode);
+  rps = p.rps;
+  document.getElementById('traffic').value = rps;
+  document.getElementById('traffic-val').textContent = rps + ' rps';
+  resetRuntime();
+  renderGraph();
+  toast(p.hint);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Boot
+   ══════════════════════════════════════════════════════════════════ */
+
+const paletteBox = document.getElementById('palette-items');
+ORDER.forEach(type => {
+  const t = TYPES[type];
+  const item = document.createElement('div');
+  item.className = 'palette-item';
+  item.innerHTML =
+    '<div class="palette-swatch" style="background:' + t.color + '22">' + t.icon + '</div>' +
+    '<div class="palette-label">' + t.label + '</div>';
+  item.addEventListener('pointerdown', ev => onPalettePointerDown(ev, type));
+  paletteBox.appendChild(item);
+});
+
+const presetBox = document.getElementById('presets');
+PRESETS.forEach(p => {
+  const b = document.createElement('button');
+  b.className = 'preset';
+  b.innerHTML = '<b>' + p.name + '</b><span>' + p.hint + '</span>';
+  b.onclick = () => loadPreset(p);
+  presetBox.appendChild(b);
+});
+
+const traffic = document.getElementById('traffic');
+traffic.oninput = () => {
+  rps = +traffic.value;
+  document.getElementById('traffic-val').textContent = rps + ' rps';
+};
+
+document.getElementById('speed').onchange = e => { speed = +e.target.value; };
+
+const playBtn = document.getElementById('btn-play');
+playBtn.onclick = () => {
+  running = !running;
+  playBtn.textContent = running ? 'Pause' : 'Play';
+};
+
+document.getElementById('btn-reset').onclick = () => { resetRuntime(); renderGraph(); };
+document.getElementById('btn-clear').onclick = () => {
+  nodes = []; edges = []; selection = null;
+  resetRuntime(); renderGraph();
+};
+
+// Node coordinates are viewport-independent, so a resize only needs the
+// cached path lengths refreshed.
+let resizePending = false;
+window.addEventListener('resize', () => {
+  if (resizePending) return;
+  resizePending = true;
+  requestAnimationFrame(() => { resizePending = false; renderGraph(); });
+});
+
+let lastFrame = performance.now();
+let acc = 0;
+
+function loop(now) {
+  const dtReal = Math.min(100, now - lastFrame);
+  lastFrame = now;
+  if (running) {
+    acc += dtReal * speed;
+    let guard = 0;
+    while (acc >= TICK_MS && guard++ < 600) { step(TICK_MS); acc -= TICK_MS; }
+    if (guard >= 600) acc = 0;
+  }
+  renderFrame();
+  requestAnimationFrame(loop);
+}
+
+// Start on the simplest architecture so the canvas is never blank.
+loadPreset(PRESETS[0]);
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
